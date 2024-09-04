@@ -35,6 +35,11 @@ To run the tool, use the following command in the project directory:
 java -jar .\target\CaseFetcher-1.0-SNAPSHOT-jar-with-dependencies.jar
 ```
 
+You can also download the jar file from the releases page and run it directly.
+```
+java -jar CS2_CaseFetcher1.0.jar
+```
+
 You will be asked for the following information:
 
 1. Your Steam profile URL
