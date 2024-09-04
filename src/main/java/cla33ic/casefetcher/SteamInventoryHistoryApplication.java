@@ -31,6 +31,10 @@ import java.util.TreeMap;
 public class SteamInventoryHistoryApplication {
     private static final Logger logger = LoggerFactory.getLogger(SteamInventoryHistoryApplication.class);
 
+    /**
+     * Main method for the Steam Inventory History Tool application.
+     * @param args the command line arguments
+     */
     public static void main(String[] args) {
         LoggingConfig.configureLogging();
         logger.info("Starting Steam Inventory History Application");
@@ -49,6 +53,11 @@ public class SteamInventoryHistoryApplication {
         logger.info("Steam Inventory History Application completed");
     }
 
+    /**
+     * Get the user input for the Steam Inventory History Tool.
+     * @return the user input
+     * @throws IOException if an I/O error occurs
+     */
     private static UserInput getUserInput() throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
@@ -69,6 +78,11 @@ public class SteamInventoryHistoryApplication {
         return new UserInput(baseUrl, cookie);
     }
 
+    /**
+     * Run the Steam Inventory History Tool application.
+     * @param userInput the user input
+     * @throws Exception if an error occurs during application execution
+     */
     private static void runApplication(UserInput userInput) throws Exception {
         System.out.println(TerminalColor.colorize("Fetching inventory history... This may take a while.", TerminalColor.YELLOW));
 
@@ -106,6 +120,12 @@ public class SteamInventoryHistoryApplication {
         System.out.println(TerminalColor.colorize("\nThank you for using the Steam Inventory History Tool!", TerminalColor.GREEN));
     }
 
+    /**
+     * Save the case opening results to a text file.
+     * @param events the list of case opening events
+     * @param summary the case opening summary
+     * @throws IOException if an I/O error occurs
+     */
     private static void saveResults(List<CaseOpeningEvent> events, CaseOpeningSummary summary) throws IOException {
         String fileName = "case_opening_results_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".txt";
         try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(fileName))) {
