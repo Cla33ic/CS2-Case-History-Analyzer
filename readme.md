@@ -6,7 +6,7 @@ The Steam Inventory History Tool is a Java application designed to provide CS2 p
 
 ## ✨ Key Features
 
-- 📊 Detailed analysis of your CS:GO case opening history
+- 📊 Detailed analysis of your CS2 case opening history
 - 💰 Calculation of total costs for keys and cases
 - 🏆 Breakdown of received items by rarity
 - 📈 Statistics on most frequently opened cases
