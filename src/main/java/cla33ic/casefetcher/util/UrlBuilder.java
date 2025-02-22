@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 
 public final class UrlBuilder {
     private static final Logger logger = LoggerFactory.getLogger(UrlBuilder.class);
-    private static final Pattern CURSOR_PATTERN = Pattern.compile("\"cursor\":\\{\"time\":(\\d+),\"time_frac\":(\\d+),\"s\":\"(\\d+)\"\\}");
+    private static final Pattern CURSOR_PATTERN = Pattern.compile("\"cursor\":\\{\"time\":(\\d+),\"time_frac\":(\\d+),\"s\":\"(\\d+)\"}");
 
     private UrlBuilder() {
         // Private constructor to prevent instantiation

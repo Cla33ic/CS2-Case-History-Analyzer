@@ -3,6 +3,7 @@ package cla33ic.casefetcher.service.market;
 import cla33ic.casefetcher.cache.CacheService;
 import cla33ic.casefetcher.config.AppConfig;
 import cla33ic.casefetcher.service.http.HttpClientService;
+import cla33ic.casefetcher.util.RateLimiter;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.jsoup.Jsoup;
@@ -15,6 +16,9 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,6 +30,11 @@ public class SteamMarketServiceImpl implements SteamMarketService, HttpClientSer
     private final CacheService<String, TreeMap<LocalDate, Double>> cacheService;
     private final HttpClientService httpClientService;
     private String cookie;
+
+    // Rate limiter to enforce a delay between requests (~1 every 2400ms for 25 req/min)
+    private final RateLimiter rateLimiter = new RateLimiter(2400);
+    // Executor for asynchronous operations
+    private final ExecutorService executor = Executors.newFixedThreadPool(5);
 
     public SteamMarketServiceImpl(HttpClientService httpClientService,
                                   CacheService<String, TreeMap<LocalDate, Double>> cacheService,
@@ -75,7 +84,16 @@ public class SteamMarketServiceImpl implements SteamMarketService, HttpClientSer
         }
     }
 
+    /**
+     * Asynchronously fetch the price for an item on a given date.
+     */
+    public CompletableFuture<Double> fetchPriceForDateAsync(String itemName, LocalDate date) {
+        return CompletableFuture.supplyAsync(() -> fetchPriceForDate(itemName, date), executor);
+    }
+
     private TreeMap<LocalDate, Double> fetchPriceData(String caseName) throws IOException {
+        // Ensure we respect the rate limit before making the request
+        rateLimiter.acquire();
         String url = AppConfig.STEAM_MARKET_BASE_URL + caseName.replace(" ", "%20");
         Map<String, String> headers = new HashMap<>();
         headers.put("Cookie", "steamLoginSecure=" + cookie + "; Steam_Language=english");
@@ -106,7 +124,9 @@ public class SteamMarketServiceImpl implements SteamMarketService, HttpClientSer
             TreeMap<LocalDate, Double> priceData = new TreeMap<>();
             for (List<Object> entry : rawData) {
                 try {
-                    String dateStr = ((String) entry.get(0)).split(" ")[0] + " " + ((String) entry.get(0)).split(" ")[1] + " " + ((String) entry.get(0)).split(" ")[2];
+                    String entryStr = (String) entry.getFirst();
+                    String[] parts = entryStr.split(" ");
+                    String dateStr = parts[0] + " " + parts[1] + " " + parts[2];
                     LocalDate date = LocalDate.parse(dateStr, DATE_FORMATTER);
                     double price = ((Number) entry.get(1)).doubleValue();
                     priceData.put(date, price);

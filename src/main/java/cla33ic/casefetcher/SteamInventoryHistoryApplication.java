@@ -8,25 +8,20 @@ import cla33ic.casefetcher.model.CaseOpeningSummary;
 import cla33ic.casefetcher.model.UserInput;
 import cla33ic.casefetcher.service.http.HttpClientService;
 import cla33ic.casefetcher.service.http.HttpClientServiceImpl;
-import cla33ic.casefetcher.service.inventory.InventoryHistoryService;
 import cla33ic.casefetcher.service.inventory.InventoryHistoryServiceImpl;
 import cla33ic.casefetcher.service.market.SteamMarketService;
 import cla33ic.casefetcher.service.market.SteamMarketServiceImpl;
 import cla33ic.casefetcher.service.parser.CaseOpeningParser;
 import cla33ic.casefetcher.service.parser.CaseOpeningParserImpl;
+import cla33ic.casefetcher.util.CachedResultsHandler;
 import cla33ic.casefetcher.util.TerminalColor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.TreeMap;
+import java.time.LocalDateTime;
 
 public class SteamInventoryHistoryApplication {
     private static final Logger logger = LoggerFactory.getLogger(SteamInventoryHistoryApplication.class);
@@ -38,8 +33,8 @@ public class SteamInventoryHistoryApplication {
     public static void main(String[] args) {
         LoggingConfig.configureLogging();
         logger.info("Starting Steam Inventory History Application");
-        logger.info("Current file.encoding: " + System.getProperty("file.encoding"));
-        logger.info("Default Charset: " + Charset.defaultCharset());
+        logger.info("Current file.encoding: {}", Charset.defaultCharset().displayName());
+        logger.info("Default Charset: {}", Charset.defaultCharset());
 
         try {
             UserInput userInput = getUserInput();
@@ -62,7 +57,7 @@ public class SteamInventoryHistoryApplication {
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
         System.out.println(TerminalColor.colorize("Welcome to the Steam Inventory History Tool!", TerminalColor.GREEN));
-        System.out.println("This tool will help you analyze your CS:GO case openings.");
+        System.out.println("This tool will help you analyze your CS2 case openings.");
 
         System.out.print("Enter your Steam profile URL: ");
         String profileUrl = reader.readLine().trim();
@@ -84,25 +79,46 @@ public class SteamInventoryHistoryApplication {
      * @throws Exception if an error occurs during application execution
      */
     private static void runApplication(UserInput userInput) throws Exception {
-        System.out.println(TerminalColor.colorize("Fetching inventory history... This may take a while.", TerminalColor.YELLOW));
+        System.out.println(TerminalColor.colorize("Processing inventory history...", TerminalColor.YELLOW));
+
+        // Extract account id from the profile URL. E.g., from "https://steamcommunity.com/id/cla33ic" extract "cla33ic"
+        String accountId = extractAccountId(userInput.getBaseUrl());
+
+        // Load cached events if available
+        List<CaseOpeningEvent> cachedEvents = CachedResultsHandler.loadCachedEvents(accountId);
+        LocalDateTime latestCachedDate = cachedEvents.stream()
+                .map(CaseOpeningEvent::dateTime)
+                .max(LocalDateTime::compareTo)
+                .orElse(null);
 
         HttpClientService httpClientService = new HttpClientServiceImpl();
         httpClientService.setCookie(userInput.getCookie());
 
-        CacheService<String, TreeMap<LocalDate, Double>> cacheService = new InMemoryCacheService<>();
+        // Updated the cache type to use TreeMap<LocalDate, Double> as required.
+        CacheService<String, java.util.TreeMap<java.time.LocalDate, Double>> cacheService = new InMemoryCacheService<>();
         SteamMarketService steamMarketService = new SteamMarketServiceImpl(httpClientService, cacheService, userInput.getCookie());
         CaseOpeningParser caseOpeningParser = new CaseOpeningParserImpl(steamMarketService);
-        InventoryHistoryService inventoryHistoryService = new InventoryHistoryServiceImpl(httpClientService, caseOpeningParser, userInput.getCookie());
+        InventoryHistoryServiceImpl inventoryHistoryService = new InventoryHistoryServiceImpl(httpClientService, caseOpeningParser, userInput.getCookie());
 
-        List<CaseOpeningEvent> caseOpeningEvents = inventoryHistoryService.fetchInventoryHistory(userInput.getBaseUrl());
+        List<CaseOpeningEvent> newEvents;
+        if (latestCachedDate != null) {
+            logger.info("Cached events found. Latest cached event date: {}", latestCachedDate);
+            newEvents = inventoryHistoryService.fetchInventoryHistory(userInput.getBaseUrl(), latestCachedDate);
+        } else {
+            logger.info("No cached events found. Fetching complete inventory history.");
+            newEvents = inventoryHistoryService.fetchInventoryHistory(userInput.getBaseUrl());
+        }
 
-        if (caseOpeningEvents.isEmpty()) {
+        // Merge cached events with new events (avoiding duplicates)
+        List<CaseOpeningEvent> allEvents = CachedResultsHandler.mergeEvents(cachedEvents, newEvents);
+
+        if (allEvents.isEmpty()) {
             System.out.println(TerminalColor.colorize("No case opening events found. Make sure your inventory history is public.", TerminalColor.RED));
             return;
         }
 
         System.out.println(TerminalColor.colorize("Analyzing case openings...", TerminalColor.YELLOW));
-        CaseOpeningSummary summary = inventoryHistoryService.summarizeCaseOpenings(caseOpeningEvents);
+        CaseOpeningSummary summary = inventoryHistoryService.summarizeCaseOpenings(allEvents);
 
         if (summary == null) {
             System.out.println(TerminalColor.colorize("Failed to generate summary. Please check the log file for more details.", TerminalColor.RED));
@@ -112,29 +128,27 @@ public class SteamInventoryHistoryApplication {
         System.out.println(TerminalColor.colorize("\nAnalysis Complete!", TerminalColor.GREEN));
         System.out.println(summary);
 
-        saveResults(caseOpeningEvents, summary);
+        // Save merged results to fixed file paths (both human-readable and JSON cache)
+        CachedResultsHandler.saveCachedEvents(accountId, allEvents, summary);
 
         System.out.println(TerminalColor.colorize("\nDetailed Case Opening Events:", TerminalColor.BLUE));
-        caseOpeningEvents.forEach(System.out::println);
+        allEvents.forEach(System.out::println);
 
         System.out.println(TerminalColor.colorize("\nThank you for using the Steam Inventory History Tool!", TerminalColor.GREEN));
     }
 
     /**
-     * Save the case opening results to a text file.
-     * @param events the list of case opening events
-     * @param summary the case opening summary
-     * @throws IOException if an I/O error occurs
+     * Extracts the account id from a given base URL.
+     * Assumes the URL contains "/id/{accountId}/inventoryhistory/"
      */
-    private static void saveResults(List<CaseOpeningEvent> events, CaseOpeningSummary summary) throws IOException {
-        String fileName = "case_opening_results_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".txt";
-        try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(fileName))) {
-            writer.write(summary.toString());
-            writer.write("\n\nDetailed Case Opening Events:\n");
-            for (CaseOpeningEvent event : events) {
-                writer.write(event.toString() + "\n");
-            }
-        }
-        System.out.println(TerminalColor.colorize("Results saved to " + fileName, TerminalColor.GREEN));
+    private static String extractAccountId(String baseUrl) {
+        // Example: "https://steamcommunity.com/id/cla33ic/inventoryhistory/"
+        String marker = "/id/";
+        int start = baseUrl.indexOf(marker);
+        if (start == -1) return "default";
+        start += marker.length();
+        int end = baseUrl.indexOf("/", start);
+        if (end == -1) return baseUrl.substring(start);
+        return baseUrl.substring(start, end);
     }
 }

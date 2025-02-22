@@ -1,8 +1,6 @@
 package cla33ic.casefetcher.config;
 
 public class AppConfig {
-    // HTTP Client settings
-    public static final int INITIAL_DELAY = 1000; // 1 second
 
     // Steam Market settings
     public static final String STEAM_MARKET_BASE_URL = "https://steamcommunity.com/market/listings/730/";
@@ -12,6 +10,9 @@ public class AppConfig {
 
     // Cache settings
     public static final int CACHE_EXPIRATION_HOURS = 24;
+
+    // Request delay (in milliseconds) between Steam API calls to respect rate limiting
+    public static final long STEAM_REQUEST_DELAY_MS = 1000;
 
     private AppConfig() {
         // Private constructor to prevent instantiation

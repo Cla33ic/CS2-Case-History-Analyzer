@@ -1,7 +1,6 @@
 package cla33ic.casefetcher.service.parser;
 
 import cla33ic.casefetcher.model.CaseOpeningEvent;
-import cla33ic.casefetcher.model.CaseOpeningSummary;
 import cla33ic.casefetcher.service.market.SteamMarketService;
 import com.google.gson.JsonObject;
 import org.jsoup.Jsoup;
@@ -156,30 +155,6 @@ public class CaseOpeningParserImpl implements CaseOpeningParser {
         }
 
         return "Unknown";
-    }
-
-    @Override
-    public CaseOpeningSummary summarizeWeaponCases(List<CaseOpeningEvent> events) {
-        Map<String, Integer> caseStats = new HashMap<>();
-        Map<String, Integer> itemStats = new HashMap<>();
-        Map<String, Long> rarityStats = new HashMap<>();
-
-        for (CaseOpeningEvent event : events) {
-            caseStats.merge(event.caseOpened(), 1, Integer::sum);
-            if (!event.isRental()) {
-                itemStats.merge(event.itemReceived(), 1, Integer::sum);
-                rarityStats.merge(event.rarity(), 1L, Long::sum);
-            } else {
-                itemStats.merge("Rental Item", 1, Integer::sum);
-                rarityStats.merge("Rental", 1L, Long::sum);
-            }
-        }
-
-        int totalCases = events.size();
-        double totalKeyCost = totalCases * 2.35; // Assuming key price is 2.35
-        double totalCaseCost = events.stream().mapToDouble(CaseOpeningEvent::casePrice).sum();
-
-        return new CaseOpeningSummary(caseStats, itemStats, rarityStats, totalCases, totalKeyCost, totalCaseCost, events);
     }
 
     private static Map<String, Integer> createMonthMap() {

@@ -14,15 +14,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import cla33ic.casefetcher.config.AppConfig;
+
 public class InventoryHistoryServiceImpl implements InventoryHistoryService {
     private static final Logger logger = LoggerFactory.getLogger(InventoryHistoryServiceImpl.class);
-    private static final long DELAY_BETWEEN_REQUESTS = 1000; // 1 second delay
+    private static final long DELAY_BETWEEN_REQUESTS = AppConfig.STEAM_REQUEST_DELAY_MS; // Configurable delay
 
     private final HttpClientService httpClientService;
     private final CaseOpeningParser caseOpeningParser;
@@ -38,10 +41,19 @@ public class InventoryHistoryServiceImpl implements InventoryHistoryService {
 
     @Override
     public List<CaseOpeningEvent> fetchInventoryHistory(String baseUrl) {
+        return fetchInventoryHistory(baseUrl, null);
+    }
+
+    /**
+     * Overloaded method to fetch inventory history only for events newer than latestCachedDate.
+     * If latestCachedDate is null, fetch all events.
+     */
+    public List<CaseOpeningEvent> fetchInventoryHistory(String baseUrl, LocalDateTime latestCachedDate) {
         List<CaseOpeningEvent> allEvents = new ArrayList<>();
         Optional<String[]> cursor = Optional.empty();
         int page = 1;
 
+        outerLoop:
         do {
             try {
                 String url = UrlBuilder.buildUrl(baseUrl, cookie, cursor.map(c -> c[0]).orElse(null),
@@ -59,13 +71,27 @@ public class InventoryHistoryServiceImpl implements InventoryHistoryService {
                 }
 
                 List<CaseOpeningEvent> caseOpenings = caseOpeningParser.extractCaseOpenings(jsonResponse.get("html").getAsString(), jsonResponse);
+                // If latestCachedDate is provided, filter out older events and stop if reached.
+                if (latestCachedDate != null) {
+                    List<CaseOpeningEvent> newEvents = new ArrayList<>();
+                    for (CaseOpeningEvent event : caseOpenings) {
+                        if (event.dateTime().isAfter(latestCachedDate)) {
+                            newEvents.add(event);
+                        } else {
+                            // As events are in descending order, once we hit an older event, we can stop processing further.
+                            break outerLoop;
+                        }
+                    }
+                    caseOpenings = newEvents;
+                }
+
                 allEvents.addAll(caseOpenings);
                 PaginationHelper.logPageInfo(page, caseOpenings.size());
 
                 cursor = UrlBuilder.extractCursor(response);
                 page++;
 
-                // Add delay between requests
+                // Add delay between requests to respect rate limiting
                 Thread.sleep(DELAY_BETWEEN_REQUESTS);
             } catch (IOException e) {
                 logger.error("Error occurred during inventory history retrieval", e);
@@ -77,7 +103,7 @@ public class InventoryHistoryServiceImpl implements InventoryHistoryService {
             }
         } while (PaginationHelper.hasNextPage(cursor));
 
-        logger.info("Fetched a total of {} case opening events", allEvents.size());
+        logger.info("Fetched a total of {} new case opening events", allEvents.size());
         return allEvents;
     }
 
@@ -100,7 +126,7 @@ public class InventoryHistoryServiceImpl implements InventoryHistoryService {
             caseStats.merge(event.caseOpened(), 1, Integer::sum);
             itemStats.merge(event.itemReceived(), 1, Integer::sum);
             rarityStats.merge(event.rarity(), 1L, Long::sum);
-            totalKeyCost += 2.35; // Assuming key price is 2.35
+            totalKeyCost += AppConfig.KEY_PRICE;
             totalCaseCost += event.casePrice();
         }
 
