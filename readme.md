@@ -66,14 +66,21 @@ When you run the tool, you'll be prompted to enter:
 3. Go to the "Network" tab
 4. Refresh the page
 5. Locate a request to "steamcommunity.com" (usually associated with your username)
-6. In the Request Headers, find the `Cookie` value
-7. Copy the entire value of the `Cookie`
+6. In the Request Headers, find the "Cookie" value
+7. Copy the entire value of the `steamLoginSecure` cookie
 
 **Warning:** Never share your Steam login cookie with anyone. It provides direct access to your account.
 
+## 📊 Results Storage
+
+The analyzer creates a `results` directory in the same location where the JAR is run. Two files are generated:
+
+- A `.txt` file containing the human-readable analysis results
+- A `.json` file storing the fetched data for future runs, preventing unnecessary API requests by only fetching new data since the last analysis
+
 ## 📊 Sample Output
 
-After processing your inventory history, you might see an output like:
+After processing your inventory history, you'll find a text file in the results directory with output like:
 
 ```yaml
 Case Opening Summary:
@@ -109,6 +116,7 @@ This project is licensed under the MIT License. See the LICENSE file for details
 For questions or feedback, reach out at:
 - Email: cla33ic@cla33ic.de
 - Twitter: @freundevniemand
+- Steam: [/id/cla33ic](https://steamcommunity.com/id/cla33ic)
 
 ## 🐛 Troubleshooting
 
