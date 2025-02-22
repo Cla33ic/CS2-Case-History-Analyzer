@@ -1,14 +1,15 @@
 package cla33ic.casefetcher.service.http;
 
 import cla33ic.casefetcher.exception.CaseFetcherException;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,12 +47,14 @@ public abstract class AbstractHttpClientService implements HttpClientService {
             HttpGet request = new HttpGet(url);
             setHeaders(request, headers);
             try (CloseableHttpResponse response = client.execute(request)) {
-                int statusCode = response.getStatusLine().getStatusCode();
+                int statusCode = response.getCode();
                 if (statusCode == 200) {
                     return EntityUtils.toString(response.getEntity());
                 } else {
                     throw new CaseFetcherException("HTTP request failed", statusCode);
                 }
+            } catch (ParseException e) {
+                throw new RuntimeException(e);
             }
         });
     }
@@ -62,17 +65,19 @@ public abstract class AbstractHttpClientService implements HttpClientService {
             setHeaders(request, headers);
             request.setEntity(new StringEntity(body));
             try (CloseableHttpResponse response = client.execute(request)) {
-                int statusCode = response.getStatusLine().getStatusCode();
+                int statusCode = response.getCode();
                 if (statusCode == 200) {
                     return EntityUtils.toString(response.getEntity());
                 } else {
                     throw new CaseFetcherException("HTTP request failed", statusCode);
                 }
+            } catch (ParseException e) {
+                throw new RuntimeException(e);
             }
         });
     }
 
-    private void setHeaders(org.apache.http.HttpRequest request, Map<String, String> headers) {
+    private void setHeaders(org.apache.hc.core5.http.ClassicHttpRequest request, Map<String, String> headers) {
         headers.forEach(request::addHeader);
         if (cookie != null && !headers.containsKey("Cookie")) {
             request.addHeader("Cookie", cookie);
