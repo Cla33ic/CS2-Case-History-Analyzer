@@ -76,9 +76,8 @@ public class SteamInventoryHistoryApplication {
     /**
      * Run the Steam Inventory History Tool application.
      * @param userInput the user input
-     * @throws Exception if an error occurs during application execution
      */
-    private static void runApplication(UserInput userInput) throws Exception {
+    private static void runApplication(UserInput userInput) {
         System.out.println(TerminalColor.colorize("Processing inventory history...", TerminalColor.YELLOW));
 
         // Extract account id from the profile URL. E.g., from "https://steamcommunity.com/id/cla33ic" extract "cla33ic"

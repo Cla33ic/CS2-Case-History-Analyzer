@@ -16,7 +16,6 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -33,7 +32,7 @@ public class SteamMarketServiceImpl implements SteamMarketService, HttpClientSer
 
     // Rate limiter to enforce a delay between requests (~1 every 2400ms for 25 req/min)
     private final RateLimiter rateLimiter = new RateLimiter(2400);
-    // Executor for asynchronous operations
+    // Executor for asynchronous operations (if needed in the future)
     private final ExecutorService executor = Executors.newFixedThreadPool(5);
 
     public SteamMarketServiceImpl(HttpClientService httpClientService,
@@ -82,13 +81,6 @@ public class SteamMarketServiceImpl implements SteamMarketService, HttpClientSer
             logger.error("Error fetching price for {} on {}: {}", itemName, date, e.getMessage());
             return DEFAULT_PRICE;
         }
-    }
-
-    /**
-     * Asynchronously fetch the price for an item on a given date.
-     */
-    public CompletableFuture<Double> fetchPriceForDateAsync(String itemName, LocalDate date) {
-        return CompletableFuture.supplyAsync(() -> fetchPriceForDate(itemName, date), executor);
     }
 
     private TreeMap<LocalDate, Double> fetchPriceData(String caseName) throws IOException {

@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import cla33ic.casefetcher.config.AppConfig;
 
@@ -36,7 +37,8 @@ public class InventoryHistoryServiceImpl implements InventoryHistoryService {
         this.httpClientService = httpClientService;
         this.caseOpeningParser = caseOpeningParser;
         this.cookie = cookie;
-        this.gson = new GsonBuilder().setLenient().create();
+        // Removed deprecated setLenient() call.
+        this.gson = new GsonBuilder().create();
     }
 
     @Override
@@ -91,8 +93,8 @@ public class InventoryHistoryServiceImpl implements InventoryHistoryService {
                 cursor = UrlBuilder.extractCursor(response);
                 page++;
 
-                // Add delay between requests to respect rate limiting
-                Thread.sleep(DELAY_BETWEEN_REQUESTS);
+                // Replace Thread.sleep() with TimeUnit.MILLISECONDS.sleep() for clarity
+                TimeUnit.MILLISECONDS.sleep(DELAY_BETWEEN_REQUESTS);
             } catch (IOException e) {
                 logger.error("Error occurred during inventory history retrieval", e);
                 break;

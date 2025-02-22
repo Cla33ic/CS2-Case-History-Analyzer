@@ -21,10 +21,9 @@ public class CachedResultsHandler {
     private static final Logger logger = LoggerFactory.getLogger(CachedResultsHandler.class);
     private static final String RESULTS_DIR = "results";
 
-    // Updated Gson instance with custom LocalDateTime adapter
+    // Updated Gson instance without .setLenient() and with custom LocalDateTime adapter.
     private static final Gson gson = new GsonBuilder()
             .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())
-            .setLenient()
             .create();
 
     // We store the raw events in a JSON cache for easy reloading.
